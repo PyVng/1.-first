@@ -30,6 +30,7 @@
             border-radius: 12px;
             background: #202020;
             box-shadow: 0 16px 35px rgba(0, 0, 0, 0.45);
+            touch-action: none;
         }
 
         .info {
@@ -186,6 +187,19 @@
         draw();
     }
 
+    function setPendingDirection(nextDir) {
+        if (!nextDir) {
+            return;
+        }
+
+        const isOpposite = nextDir.x === -direction.x && nextDir.y === -direction.y;
+        if (isOpposite && snake.length > 1) {
+            return;
+        }
+
+        pendingDirection = nextDir;
+    }
+
     function handleKeyDown(event) {
         const key = event.key;
         if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(key)) {
@@ -203,23 +217,50 @@
             return;
         }
 
-        const nextDir = {
+        setPendingDirection({
             ArrowUp: {x: 0, y: -1},
             ArrowDown: {x: 0, y: 1},
             ArrowLeft: {x: -1, y: 0},
             ArrowRight: {x: 1, y: 0},
-        }[key];
+        }[key]);
+    }
 
-        if (!nextDir) {
+    function handlePointerDown(event) {
+        if (event.cancelable) {
+            event.preventDefault();
+        }
+
+        let point;
+        if (event.changedTouches && event.changedTouches.length) {
+            point = event.changedTouches[0];
+        } else {
+            point = event;
+        }
+
+        const rect = canvas.getBoundingClientRect();
+        const tapX = point.clientX - rect.left;
+        const tapY = point.clientY - rect.top;
+
+        const head = snake[0];
+        if (!head) {
             return;
         }
 
-        const isOpposite = nextDir.x === -direction.x && nextDir.y === -direction.y;
-        if (isOpposite && snake.length > 1) {
+        if (gameOver) {
+            resetGame();
             return;
         }
 
-        pendingDirection = nextDir;
+        const headCenterX = (head.x + 0.5) * CELL_SIZE;
+        const headCenterY = (head.y + 0.5) * CELL_SIZE;
+        const dx = tapX - headCenterX;
+        const dy = tapY - headCenterY;
+
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            setPendingDirection(dx < 0 ? {x: -1, y: 0} : {x: 1, y: 0});
+        } else {
+            setPendingDirection(dy < 0 ? {x: 0, y: -1} : {x: 0, y: 1});
+        }
     }
 
     function draw() {
@@ -261,6 +302,13 @@
 
     document.addEventListener("keydown", handleKeyDown);
     restartBtn.addEventListener("click", resetGame);
+
+    if (window.PointerEvent) {
+        canvas.addEventListener("pointerdown", handlePointerDown);
+    } else {
+        canvas.addEventListener("touchstart", handlePointerDown, {passive: false});
+        canvas.addEventListener("mousedown", handlePointerDown);
+    }
 
     resetGame();
 </script>
