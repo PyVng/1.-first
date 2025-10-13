@@ -291,11 +291,6 @@
         }
     }
 
-    function drawCell(cell, color) {
-        ctx.fillStyle = color;
-        ctx.fillRect(cell.x * CELL_SIZE, cell.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-    }
-
     function drawFood(cell) {
         const center = cellCenter(cell);
         const radius = CELL_SIZE * 0.35;
