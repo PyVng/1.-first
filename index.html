@@ -266,9 +266,9 @@
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGrid();
-        snake.forEach((segment, index) => drawCell(segment, index === 0 ? "#3bd16f" : "#2ea75a"));
+        drawSnake();
         if (food) {
-            drawCell(food, "#ff6464");
+            drawFood(food);
         }
     }
 
@@ -294,6 +294,152 @@
     function drawCell(cell, color) {
         ctx.fillStyle = color;
         ctx.fillRect(cell.x * CELL_SIZE, cell.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    }
+
+    function drawFood(cell) {
+        const center = cellCenter(cell);
+        const radius = CELL_SIZE * 0.35;
+
+        const gradient = ctx.createRadialGradient(
+            center.x - radius * 0.4,
+            center.y - radius * 0.4,
+            radius * 0.2,
+            center.x,
+            center.y,
+            radius
+        );
+        gradient.addColorStop(0, "#ff9494");
+        gradient.addColorStop(1, "#ff3b3b");
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "#0f611f";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(center.x, center.y - radius * 1.2);
+        ctx.lineTo(center.x - radius * 0.2, center.y - radius * 1.8);
+        ctx.stroke();
+
+        ctx.fillStyle = "#3bd16f";
+        ctx.beginPath();
+        ctx.ellipse(
+            center.x + radius * 0.4,
+            center.y - radius * 1.4,
+            radius * 0.5,
+            radius * 0.25,
+            -0.4,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+    }
+
+    function drawSnake() {
+        if (snake.length === 0) {
+            return;
+        }
+
+        const head = snake[0];
+        const tail = snake[snake.length - 1];
+        const headCenter = cellCenter(head);
+        const tailCenter = cellCenter(tail);
+
+        const bodyGradient = ctx.createLinearGradient(
+            tailCenter.x,
+            tailCenter.y,
+            headCenter.x,
+            headCenter.y
+        );
+        bodyGradient.addColorStop(0, "#24884a");
+        bodyGradient.addColorStop(1, "#3bd16f");
+
+        ctx.save();
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = bodyGradient;
+        ctx.lineWidth = CELL_SIZE * 0.8;
+
+        ctx.beginPath();
+        const start = cellCenter(tail);
+        ctx.moveTo(start.x, start.y);
+        for (let i = snake.length - 2; i >= 0; i -= 1) {
+            const point = cellCenter(snake[i]);
+            ctx.lineTo(point.x, point.y);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        drawSnakeHead(head, snake[1] ?? head);
+    }
+
+    function drawSnakeHead(head, neck) {
+        const center = cellCenter(head);
+        const radius = CELL_SIZE * 0.42;
+
+        const gradient = ctx.createRadialGradient(
+            center.x - radius * 0.25,
+            center.y - radius * 0.35,
+            radius * 0.1,
+            center.x,
+            center.y,
+            radius
+        );
+        gradient.addColorStop(0, "#91ffba");
+        gradient.addColorStop(1, "#2ea75a");
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        const dir = normaliseDirection({x: head.x - neck.x, y: head.y - neck.y});
+        drawEyes(center, dir, radius);
+    }
+
+    function drawEyes(center, dir, radius) {
+        const eyeOffset = radius * 0.55;
+        const perpendicular = {x: -dir.y, y: dir.x};
+        const baseX = center.x + dir.x * radius * 0.3;
+        const baseY = center.y + dir.y * radius * 0.3;
+
+        for (const side of [-1, 1]) {
+            const eyeX = baseX + perpendicular.x * eyeOffset * 0.4 * side;
+            const eyeY = baseY + perpendicular.y * eyeOffset * 0.4 * side;
+
+            ctx.fillStyle = "#f5f5f5";
+            ctx.beginPath();
+            ctx.arc(eyeX, eyeY, radius * 0.18, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#0f1f15";
+            ctx.beginPath();
+            ctx.arc(
+                eyeX + dir.x * radius * 0.1,
+                eyeY + dir.y * radius * 0.1,
+                radius * 0.08,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        }
+    }
+
+    function cellCenter(cell) {
+        return {
+            x: cell.x * CELL_SIZE + CELL_SIZE / 2,
+            y: cell.y * CELL_SIZE + CELL_SIZE / 2,
+        };
+    }
+
+    function normaliseDirection(dir) {
+        const magnitude = Math.hypot(dir.x, dir.y);
+        if (magnitude < 1e-6) {
+            return {x: 1, y: 0};
+        }
+        return {x: dir.x / magnitude, y: dir.y / magnitude};
     }
 
     function setStatus(text) {
