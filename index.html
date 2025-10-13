@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Snake – HTML5 Canvas</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111;
+            color: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        canvas {
+            border-radius: 12px;
+            background: #202020;
+            box-shadow: 0 16px 35px rgba(0, 0, 0, 0.45);
+        }
+
+        .info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info p {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 8px 18px;
+            border-radius: 999px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #3bd16f;
+            color: #082510;
+            transition: transform 120ms ease, box-shadow 120ms ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(59, 209, 111, 0.35);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <canvas id="game" width="400" height="400" aria-label="Snake board" role="img"></canvas>
+    <div class="info">
+        <p id="status">Use arrow keys. Space to pause/resume.</p>
+        <button id="restart" type="button">Restart</button>
+    </div>
+</div>
+<script>
+    const CELL_SIZE = 20;
+    const GRID_WIDTH = 20;
+    const GRID_HEIGHT = 20;
+    const MOVE_DELAY = 120;
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const restartBtn = document.getElementById("restart");
+
+    /** @type {{x: number, y: number}[]} */
+    let snake = [];
+    let direction = {x: 1, y: 0};
+    let pendingDirection = {x: 1, y: 0};
+    /** @type {{x: number, y: number} | null} */
+    let food = null;
+    let score = 0;
+    let isPaused = false;
+    let gameOver = false;
+    let loopId = null;
+
+    function resetGame() {
+        stopLoop();
+        const centerX = Math.floor(GRID_WIDTH / 2);
+        const centerY = Math.floor(GRID_HEIGHT / 2);
+
+        snake = [
+            {x: centerX, y: centerY},
+            {x: centerX - 1, y: centerY},
+            {x: centerX - 2, y: centerY},
+        ];
+        direction = {x: 1, y: 0};
+        pendingDirection = {x: 1, y: 0};
+        score = 0;
+        isPaused = false;
+        gameOver = false;
+        spawnFood();
+        setStatus("Use arrow keys. Space to pause/resume.");
+        draw();
+        startLoop();
+    }
+
+    function spawnFood() {
+        const occupied = new Set(snake.map(cell => `${cell.x},${cell.y}`));
+        const freeCells = [];
+        for (let x = 0; x < GRID_WIDTH; x += 1) {
+            for (let y = 0; y < GRID_HEIGHT; y += 1) {
+                const key = `${x},${y}`;
+                if (!occupied.has(key)) {
+                    freeCells.push({x, y});
+                }
+            }
+        }
+
+        food = freeCells.length ? freeCells[Math.floor(Math.random() * freeCells.length)] : null;
+    }
+
+    function startLoop() {
+        stopLoop();
+        loopId = setInterval(step, MOVE_DELAY);
+    }
+
+    function stopLoop() {
+        if (loopId !== null) {
+            clearInterval(loopId);
+            loopId = null;
+        }
+    }
+
+    function wrapPoint(x, y) {
+        const wrappedX = (x + GRID_WIDTH) % GRID_WIDTH;
+        const wrappedY = (y + GRID_HEIGHT) % GRID_HEIGHT;
+        return {x: wrappedX, y: wrappedY};
+    }
+
+    function step() {
+        if (isPaused || gameOver) {
+            return;
+        }
+
+        direction = {...pendingDirection};
+        const head = snake[0];
+        const next = wrapPoint(head.x + direction.x, head.y + direction.y);
+
+        if (snake.some(segment => segment.x === next.x && segment.y === next.y)) {
+            gameOver = true;
+            stopLoop();
+            setStatus(`Game over! Score: ${score}. Press Restart or Space to play again.`);
+            return;
+        }
+
+        snake.unshift(next);
+
+        if (food && next.x === food.x && next.y === food.y) {
+            score += 1;
+            spawnFood();
+            setStatus(`Score: ${score}`);
+        } else {
+            snake.pop();
+        }
+
+        if (!food) {
+            gameOver = true;
+            stopLoop();
+            setStatus(`You win! Score: ${score}. Press Restart or Space to play again.`);
+        }
+
+        draw();
+    }
+
+    function handleKeyDown(event) {
+        const key = event.key;
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(key)) {
+            event.preventDefault();
+        }
+
+        if (gameOver && key === " ") {
+            resetGame();
+            return;
+        }
+
+        if (key === " ") {
+            isPaused = !isPaused;
+            setStatus(isPaused ? "Paused. Press Space to resume." : `Score: ${score}`);
+            return;
+        }
+
+        const nextDir = {
+            ArrowUp: {x: 0, y: -1},
+            ArrowDown: {x: 0, y: 1},
+            ArrowLeft: {x: -1, y: 0},
+            ArrowRight: {x: 1, y: 0},
+        }[key];
+
+        if (!nextDir) {
+            return;
+        }
+
+        const isOpposite = nextDir.x === -direction.x && nextDir.y === -direction.y;
+        if (isOpposite && snake.length > 1) {
+            return;
+        }
+
+        pendingDirection = nextDir;
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+        snake.forEach((segment, index) => drawCell(segment, index === 0 ? "#3bd16f" : "#2ea75a"));
+        if (food) {
+            drawCell(food, "#ff6464");
+        }
+    }
+
+    function drawGrid() {
+        ctx.strokeStyle = "#303030";
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= GRID_WIDTH; x += 1) {
+            const xPos = x * CELL_SIZE;
+            ctx.beginPath();
+            ctx.moveTo(xPos, 0);
+            ctx.lineTo(xPos, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = 0; y <= GRID_HEIGHT; y += 1) {
+            const yPos = y * CELL_SIZE;
+            ctx.beginPath();
+            ctx.moveTo(0, yPos);
+            ctx.lineTo(canvas.width, yPos);
+            ctx.stroke();
+        }
+    }
+
+    function drawCell(cell, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(cell.x * CELL_SIZE, cell.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    }
+
+    function setStatus(text) {
+        statusEl.textContent = text;
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    restartBtn.addEventListener("click", resetGame);
+
+    resetGame();
+</script>
+</body>
+</html>
