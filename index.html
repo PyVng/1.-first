@@ -152,6 +152,29 @@
         return {x: wrappedX, y: wrappedY};
     }
 
+    function wrappedDelta(from, to) {
+        let dx = to.x - from.x;
+        let dy = to.y - from.y;
+
+        if (dx > GRID_WIDTH / 2) {
+            dx -= GRID_WIDTH;
+        } else if (dx < -GRID_WIDTH / 2) {
+            dx += GRID_WIDTH;
+        }
+
+        if (dy > GRID_HEIGHT / 2) {
+            dy -= GRID_HEIGHT;
+        } else if (dy < -GRID_HEIGHT / 2) {
+            dy += GRID_HEIGHT;
+        }
+
+        return {x: dx, y: dy};
+    }
+
+    function wrappedDirection(from, to) {
+        return normaliseDirection(wrappedDelta(from, to));
+    }
+
     function step() {
         if (isPaused || gameOver) {
             return;
@@ -357,13 +380,29 @@
         ctx.strokeStyle = bodyGradient;
         ctx.lineWidth = CELL_SIZE * 0.8;
 
-        ctx.beginPath();
         const start = cellCenter(tail);
+        ctx.beginPath();
         ctx.moveTo(start.x, start.y);
+
         for (let i = snake.length - 2; i >= 0; i -= 1) {
-            const point = cellCenter(snake[i]);
+            const segment = snake[i];
+            const nextSegment = snake[i + 1];
+            const isWrapped =
+                Math.abs(segment.x - nextSegment.x) > 1 ||
+                Math.abs(segment.y - nextSegment.y) > 1;
+            const point = cellCenter(segment);
+
+            if (isWrapped) {
+                // Split the stroke when the snake crosses an edge so it doesn't stretch across the board.
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(point.x, point.y);
+                continue;
+            }
+
             ctx.lineTo(point.x, point.y);
         }
+
         ctx.stroke();
         ctx.restore();
 
@@ -390,7 +429,7 @@
         ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
         ctx.fill();
 
-        const dir = normaliseDirection({x: head.x - neck.x, y: head.y - neck.y});
+        const dir = wrappedDirection(neck, head);
         drawEyes(center, dir, radius);
     }
 
