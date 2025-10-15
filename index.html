@@ -81,6 +81,7 @@
     const GRID_WIDTH = 20;
     const GRID_HEIGHT = 20;
     const MOVE_DELAY = 120;
+    const WALL_THICKNESS = Math.max(2, Math.round(CELL_SIZE * 0.15));
 
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -269,10 +270,16 @@
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGrid();
+
+        ctx.save();
+        clipPlayfield();
         drawSnake();
         if (food) {
             drawFood(food);
         }
+        ctx.restore();
+
+        drawWalls();
     }
 
     function drawGrid() {
@@ -292,6 +299,27 @@
             ctx.lineTo(canvas.width, yPos);
             ctx.stroke();
         }
+    }
+
+    function clipPlayfield() {
+        const inset = WALL_THICKNESS;
+        ctx.beginPath();
+        ctx.rect(
+            inset,
+            inset,
+            canvas.width - inset * 2,
+            canvas.height - inset * 2
+        );
+        ctx.clip();
+    }
+
+    function drawWalls() {
+        const t = WALL_THICKNESS;
+        ctx.fillStyle = "#050505";
+        ctx.fillRect(0, 0, canvas.width, t);
+        ctx.fillRect(0, canvas.height - t, canvas.width, t);
+        ctx.fillRect(0, 0, t, canvas.height);
+        ctx.fillRect(canvas.width - t, 0, t, canvas.height);
     }
 
     function drawFood(cell) {
