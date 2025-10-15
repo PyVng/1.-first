@@ -146,35 +146,6 @@
         }
     }
 
-    function wrapPoint(x, y) {
-        const wrappedX = (x + GRID_WIDTH) % GRID_WIDTH;
-        const wrappedY = (y + GRID_HEIGHT) % GRID_HEIGHT;
-        return {x: wrappedX, y: wrappedY};
-    }
-
-    function wrappedDelta(from, to) {
-        let dx = to.x - from.x;
-        let dy = to.y - from.y;
-
-        if (dx > GRID_WIDTH / 2) {
-            dx -= GRID_WIDTH;
-        } else if (dx < -GRID_WIDTH / 2) {
-            dx += GRID_WIDTH;
-        }
-
-        if (dy > GRID_HEIGHT / 2) {
-            dy -= GRID_HEIGHT;
-        } else if (dy < -GRID_HEIGHT / 2) {
-            dy += GRID_HEIGHT;
-        }
-
-        return {x: dx, y: dy};
-    }
-
-    function wrappedDirection(from, to) {
-        return normaliseDirection(wrappedDelta(from, to));
-    }
-
     function step() {
         if (isPaused || gameOver) {
             return;
@@ -182,7 +153,16 @@
 
         direction = {...pendingDirection};
         const head = snake[0];
-        const next = wrapPoint(head.x + direction.x, head.y + direction.y);
+        const next = {x: head.x + direction.x, y: head.y + direction.y};
+
+        const hitWall =
+            next.x < 0 || next.x >= GRID_WIDTH || next.y < 0 || next.y >= GRID_HEIGHT;
+        if (hitWall) {
+            gameOver = true;
+            stopLoop();
+            setStatus(`Game over! You hit the wall. Score: ${score}. Press Restart or Space to play again.`);
+            return;
+        }
 
         if (snake.some(segment => segment.x === next.x && segment.y === next.y)) {
             gameOver = true;
@@ -362,8 +342,8 @@
 
         const head = snake[0];
         const tail = snake[snake.length - 1];
-        const headCenter = cellCenter(head);
         const tailCenter = cellCenter(tail);
+        const headCenter = cellCenter(head);
 
         const bodyGradient = ctx.createLinearGradient(
             tailCenter.x,
@@ -429,7 +409,7 @@
         ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
         ctx.fill();
 
-        const dir = wrappedDirection(neck, head);
+        const dir = normaliseDirection({x: head.x - neck.x, y: head.y - neck.y});
         drawEyes(center, dir, radius);
     }
 
